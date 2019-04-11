@@ -23,16 +23,13 @@ def env_var_expand(value):
     ``9999`` if PROMETHEUS_PORT environment variable equals 9999
     ``9090`` if PROMETHEUS_PORT environment variable is not defined
     """
-    print(value)
     match = env_var_matcher.match(value)
     if not match:
         return value
-    print(match.groups())
     env_var = os.environ.get(match.group(2))
     if env_var is None:
       env_var = match.group(4)
     result = match.group(1) + str_or_empty(env_var) + match.group(5)
-    print(result)
     return result
 
 def env_var_constructor(loader, node):
