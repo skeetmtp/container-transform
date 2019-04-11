@@ -2,9 +2,45 @@ import uuid
 from functools import reduce
 
 import yaml
+import re
+import os
 
 from .transformer import BaseTransformer
 
+
+
+env_var_matcher = re.compile(r'(.*)\$\{(\w+)(:-(\w+))?\}(.*)')
+
+
+
+def str_or_empty(s):
+    return '' if s is None else str(s)
+
+def env_var_expand(value):
+    """
+    expand a compose env var using os.environ
+    ex ``${PROMETHEUS_PORT:-9090}``
+    ``9999`` if PROMETHEUS_PORT environment variable equals 9999
+    ``9090`` if PROMETHEUS_PORT environment variable is not defined
+    """
+    print(value)
+    match = env_var_matcher.match(value)
+    if not match:
+        return value
+    print(match.groups())
+    env_var = os.environ.get(match.group(2))
+    if env_var is None:
+      env_var = match.group(4)
+    result = match.group(1) + str_or_empty(env_var) + match.group(5)
+    print(result)
+    return result
+
+def env_var_constructor(loader, node):
+    return env_var_expand(node.value)
+
+
+yaml.add_implicit_resolver('!envvar', env_var_matcher, None, yaml.SafeLoader)
+yaml.add_constructor('!envvar', env_var_constructor, yaml.SafeLoader)
 
 class ComposeTransformer(BaseTransformer):
     """
@@ -88,7 +124,8 @@ class ComposeTransformer(BaseTransformer):
         return container
 
     @staticmethod
-    def _parse_port_mapping(mapping):
+    def _parse_port_mapping(_mapping):
+        mapping = env_var_expand(_mapping)
         protocol = 'udp' if 'udp' in str(mapping) else 'tcp'
         output = {
             'protocol': protocol
